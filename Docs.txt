@@ -1,0 +1,1078 @@
+# PocketLM's App Docs 📱
+
+---
+
+## Table of Contents
+1. [App Overview](#overview)
+2. [Tech Stack](#tech-stack)
+3. [Architecture](#architecture)
+4. [Phase 1 - Core](#phase-1)
+5. [Phase 2 - Polish](#phase-2)
+6. [Phase 3 - Ollama Beta](#phase-3)
+7. [References & Resources](#references)
+
+---
+
+## 1. App Overview 🎯
+
+### What is PocketLM?
+PocketLM is a **free, open-source, privacy-first** mobile app that lets users download and run Large Language Models (LLMs) directly on their phone - **completely offline** with no subscription needed.
+
+### Core Values
+```
+🔒 Privacy First    → Everything runs on device
+💰 Free Forever     → No subscription, no hidden fees
+🌐 Offline First    → No internet needed after download
+🎯 User Friendly    → Anyone can use it, not just developers
+⚡ Performance      → Optimized for mobile hardware
+```
+
+### Target Audience
+| User Type | Why They'd Use PocketLM |
+|---|---|
+| **Privacy Conscious** | No data sent to cloud |
+| **Developers** | Test models locally |
+| **Students** | Free AI assistant |
+| **Travelers** | Works without internet |
+| **Enthusiasts** | Explore open source AI |
+
+---
+
+## 2. Tech Stack 🛠️
+
+### Core Technologies
+
+```
+PocketLM
+├── Frontend
+│   ├── Flutter (Cross-platform UI)
+│   ├── Dart (Programming language)
+│   └── NativeWind / Flutter Tailwind
+│
+├── AI Engine
+│   ├── llama.cpp (Core inference engine)
+│   └── llama_cpp_dart (Flutter binding)
+│
+├── Model Source
+│   └── HuggingFace API (Browse & Download)
+│
+└── Local Storage
+    ├── Hive (App data & settings)
+    ├── path_provider (File paths)
+    └── flutter_file_manager (Model files)
+```
+
+### Flutter Packages
+
+```yaml
+dependencies:
+  # UI
+  flutter:
+    sdk: flutter
+  google_fonts: ^6.1.0
+  flutter_animate: ^4.5.0
+  shimmer: ^3.0.0
+
+  # AI Engine
+  llama_cpp_dart: ^latest        # llama.cpp Flutter binding
+
+  # HuggingFace
+  dio: ^5.4.0                    # HTTP client
+  
+  # Storage
+  hive_flutter: ^1.1.0           # Local database
+  path_provider: ^2.1.2          # File paths
+  
+  # Device Info
+  device_info_plus: ^9.1.0       # Phone specs
+  disk_space: ^0.2.0             # Storage info
+  
+  # Downloads
+  flutter_downloader: ^1.11.6    # Download manager
+  permission_handler: ^11.3.0    # Permissions
+  
+  # Utils
+  provider: ^6.1.2               # State management
+  get_it: ^7.6.7                 # Dependency injection
+  pretty_dio_logger: ^1.3.1      # API logging
+```
+
+### Why Flutter?
+```
+✅ Single codebase for iOS and Android
+✅ llama_cpp_dart binding already exists
+✅ Great performance with native compilation
+✅ Large community and package ecosystem
+✅ Easy UI building with widgets
+```
+
+---
+
+## 3. Architecture 🏗️
+
+### Folder Structure
+```
+pocketlm/
+├── lib/
+│   ├── main.dart
+│   ├── app.dart
+│   │
+│   ├── core/
+│   │   ├── constants/
+│   │   │   ├── app_constants.dart
+│   │   │   ├── api_constants.dart
+│   │   │   └── model_constants.dart
+│   │   ├── theme/
+│   │   │   ├── app_theme.dart
+│   │   │   ├── colors.dart
+│   │   │   └── typography.dart
+│   │   └── utils/
+│   │       ├── llm_calculator.dart    ← LLM-Calc logic
+│   │       ├── file_utils.dart
+│   │       └── format_utils.dart
+│   │
+│   ├── data/
+│   │   ├── models/
+│   │   │   ├── hf_model.dart          ← HuggingFace model
+│   │   │   ├── downloaded_model.dart  ← Local model
+│   │   │   ├── chat_message.dart      ← Chat message
+│   │   │   └── phone_specs.dart       ← Device specs
+│   │   ├── repositories/
+│   │   │   ├── huggingface_repo.dart
+│   │   │   ├── model_repo.dart
+│   │   │   └── chat_repo.dart
+│   │   └── services/
+│   │       ├── huggingface_service.dart
+│   │       ├── llama_service.dart
+│   │       ├── download_service.dart
+│   │       └── device_service.dart
+│   │
+│   ├── presentation/
+│   │   ├── pages/
+│   │   │   ├── home/
+│   │   │   │   └── home_page.dart
+│   │   │   ├── explore/
+│   │   │   │   ├── explore_page.dart
+│   │   │   │   └── model_detail_page.dart
+│   │   │   ├── chat/
+│   │   │   │   └── chat_page.dart
+│   │   │   ├── models/
+│   │   │   │   └── my_models_page.dart
+│   │   │   └── settings/
+│   │   │       └── settings_page.dart
+│   │   ├── widgets/
+│   │   │   ├── model_card.dart
+│   │   │   ├── compatibility_badge.dart
+│   │   │   ├── download_progress.dart
+│   │   │   ├── chat_bubble.dart
+│   │   │   └── specs_card.dart
+│   │   └── providers/
+│   │       ├── explore_provider.dart
+│   │       ├── chat_provider.dart
+│   │       ├── models_provider.dart
+│   │       └── device_provider.dart
+│   │
+│   └── injection_container.dart       ← Dependency injection
+│
+├── assets/
+│   ├── images/
+│   ├── icons/
+│   └── animations/
+│
+├── test/
+│   ├── unit/
+│   └── widget/
+│
+└── pubspec.yaml
+```
+
+### App Flow
+```
+Launch App
+    │
+    ▼
+Detect Phone Specs
+    │
+    ├── RAM available
+    ├── Storage available
+    ├── CPU Architecture
+    └── OS Version
+    │
+    ▼
+Home Screen
+    │
+    ├──► Explore Page
+    │         │
+    │         ├── Browse HuggingFace models
+    │         ├── Filter by compatibility ← LLM-Calc
+    │         ├── View model details
+    │         └── Download model
+    │
+    ├──► My Models Page
+    │         │
+    │         ├── View downloaded models
+    │         ├── Load model
+    │         ├── Delete model
+    │         └── View model info
+    │
+    └──► Chat Page
+              │
+              ├── Select loaded model
+              ├── Chat with model
+              └── View chat history
+```
+
+---
+
+## 4. Phase 1 - Core 🚀
+
+### 4.1 Phone Specs Detection
+
+**Goal:** Detect device capabilities to determine which models can run
+
+```dart
+// device_service.dart
+
+class DeviceService {
+  Future<PhoneSpecs> getPhoneSpecs() async {
+    final deviceInfo = DeviceInfoPlugin();
+    
+    return PhoneSpecs(
+      totalRAM: await _getTotalRAM(),
+      availableRAM: await _getAvailableRAM(),
+      totalStorage: await _getTotalStorage(),
+      availableStorage: await _getAvailableStorage(),
+      cpuArchitecture: await _getCPUArch(),
+      osVersion: await _getOSVersion(),
+      deviceName: await _getDeviceName(),
+    );
+  }
+}
+
+// phone_specs.dart
+class PhoneSpecs {
+  final double totalRAM;        // in GB
+  final double availableRAM;    // in GB
+  final double totalStorage;    // in GB
+  final double availableStorage;// in GB
+  final String cpuArchitecture; // arm64, x86_64
+  final String osVersion;
+  final String deviceName;
+}
+```
+
+**What we detect:**
+```
+📊 Phone Specs Detection
+├── RAM
+│   ├── Total RAM
+│   └── Available RAM (minus OS usage)
+├── Storage
+│   ├── Total Storage
+│   └── Available Storage
+├── CPU
+│   ├── Architecture (ARM64 / x86)
+│   └── Core Count
+└── Device
+    ├── Device Name
+    └── OS Version (Android/iOS)
+```
+
+---
+
+### 4.2 LLM Calculator (Compatibility Checker)
+
+**Goal:** Calculate if a model can run on device based on specs
+
+**Reference:** [LLM-Calc by RayFernando1337](https://github.com/RayFernando1337/LLM-Calc)
+
+```dart
+// llm_calculator.dart
+
+class LLMCalculator {
+  
+  /// Main compatibility check
+  static ModelCompatibility checkCompatibility({
+    required PhoneSpecs specs,
+    required HFModel model,
+    int contextWindowSize = 2048,
+  }) {
+    final usableRAM = _calculateUsableRAM(
+      availableRAM: specs.availableRAM,
+      contextWindowSize: contextWindowSize,
+    );
+    
+    final maxParams = _calculateMaxParams(
+      usableRAM: usableRAM,
+      quantizationBits: model.quantizationBits,
+    );
+    
+    final status = _getCompatibilityStatus(
+      modelParams: model.parameters,
+      maxParams: maxParams,
+    );
+    
+    return ModelCompatibility(
+      canRun: status != CompatibilityStatus.tooLarge,
+      status: status,
+      maxParameters: maxParams,
+      usableRAM: usableRAM,
+      recommendedContextSize: contextWindowSize,
+    );
+  }
+
+  /// Calculate usable RAM after OS and context window overhead
+  static double _calculateUsableRAM({
+    required double availableRAM,
+    required int contextWindowSize,
+  }) {
+    // Convert to bytes
+    final ramBytes = availableRAM * 1024 * 1024 * 1024;
+    
+    // Context window memory (bytes)
+    // Formula from LLM-Calc
+    final contextMemory = contextWindowSize * 2 * 2;
+    
+    // Usable RAM in GB
+    return (ramBytes - contextMemory) / (1024 * 1024 * 1024);
+  }
+
+  /// Calculate max parameters device can handle
+  static double _calculateMaxParams({
+    required double usableRAM,
+    required int quantizationBits,
+  }) {
+    // Convert bits to bytes per parameter
+    final bytesPerParam = quantizationBits / 8;
+    
+    // Convert usable RAM to bytes
+    final usableBytes = usableRAM * 1024 * 1024 * 1024;
+    
+    // Max params in billions
+    return (usableBytes / bytesPerParam) / 1e9;
+  }
+
+  /// Get compatibility status
+  static CompatibilityStatus _getCompatibilityStatus({
+    required double modelParams,
+    required double maxParams,
+  }) {
+    final ratio = modelParams / maxParams;
+    
+    if (ratio <= 0.7) return CompatibilityStatus.great;
+    if (ratio <= 0.9) return CompatibilityStatus.good;
+    if (ratio <= 1.0) return CompatibilityStatus.tight;
+    return CompatibilityStatus.tooLarge;
+  }
+}
+
+enum CompatibilityStatus { great, good, tight, tooLarge }
+
+class ModelCompatibility {
+  final bool canRun;
+  final CompatibilityStatus status;
+  final double maxParameters;
+  final double usableRAM;
+  final int recommendedContextSize;
+}
+```
+
+**Compatibility UI:**
+```
+🟢 Great    → Model uses less than 70% of available RAM
+🟡 Good     → Model uses 70-90% of available RAM  
+🟠 Tight    → Model uses 90-100% of available RAM
+🔴 Too Big  → Model exceeds available RAM
+```
+
+---
+
+### 4.3 HuggingFace Explore Page
+
+**Goal:** Browse and discover AI models from HuggingFace
+
+**API Reference:** [HuggingFace API Docs](https://huggingface.co/docs/api-inference)
+
+```dart
+// huggingface_service.dart
+
+class HuggingFaceService {
+  final Dio _dio;
+  static const String baseUrl = 'https://huggingface.co/api';
+  
+  /// Get trending GGUF models
+  Future<List<HFModel>> getTrendingModels({
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final response = await _dio.get(
+      '$baseUrl/models',
+      queryParameters: {
+        'library': 'gguf',          // Only GGUF models
+        'sort': 'trending',
+        'limit': limit,
+        'offset': offset,
+        'full': true,               // Get full model info
+      },
+    );
+    
+    return (response.data as List)
+        .map((m) => HFModel.fromJson(m))
+        .toList();
+  }
+  
+  /// Search models
+  Future<List<HFModel>> searchModels({
+    required String query,
+    int limit = 20,
+  }) async {
+    final response = await _dio.get(
+      '$baseUrl/models',
+      queryParameters: {
+        'search': query,
+        'library': 'gguf',
+        'limit': limit,
+        'full': true,
+      },
+    );
+    
+    return (response.data as List)
+        .map((m) => HFModel.fromJson(m))
+        .toList();
+  }
+
+  /// Get model details
+  Future<HFModel> getModelDetails(String modelId) async {
+    final response = await _dio.get('$baseUrl/models/$modelId');
+    return HFModel.fromJson(response.data);
+  }
+  
+  /// Get model files (to find GGUF files)
+  Future<List<ModelFile>> getModelFiles(String modelId) async {
+    final response = await _dio.get(
+      '$baseUrl/models/$modelId',
+      queryParameters: {'blobs': true},
+    );
+    return (response.data['siblings'] as List)
+        .map((f) => ModelFile.fromJson(f))
+        .where((f) => f.filename.endsWith('.gguf'))
+        .toList();
+  }
+}
+```
+
+**Explore Page UI Layout:**
+```
+┌─────────────────────────────────┐
+│ 🔍 Search models...             │
+├─────────────────────────────────┤
+│ Your Device: 8GB RAM, 64GB free │
+├─────────────────────────────────┤
+│ 🔥 Trending  │ ⭐ Top  │ 🆕 New │
+├─────────────────────────────────┤
+│                                 │
+│ ┌─────────────────────────────┐ │
+│ │ 🟢 Phi-3 Mini (3.8B)        │ │
+│ │ microsoft/phi-3-mini         │ │
+│ │ Size: 2.2GB  Q4_K_M          │ │
+│ │ ████████░░░░ Great fit!      │ │
+│ │ ⬇️ Download    ℹ️ Details    │ │
+│ └─────────────────────────────┘ │
+│                                 │
+│ ┌─────────────────────────────┐ │
+│ │ 🟡 Mistral 7B               │ │
+│ │ mistralai/Mistral-7B         │ │
+│ │ Size: 4.1GB  Q4_K_M          │ │
+│ │ ████████████░ Good fit       │ │
+│ │ ⬇️ Download    ℹ️ Details    │ │
+│ └─────────────────────────────┘ │
+│                                 │
+│ ┌─────────────────────────────┐ │
+│ │ 🔴 LLaMA 70B                │ │
+│ │ meta-llama/Llama-2-70b      │ │
+│ │ Size: 40GB   Q4_K_M          │ │
+│ │ ████████████████ Too big!   │ │
+│ │ 🚫 Not Compatible            │ │
+│ └─────────────────────────────┘ │
+└─────────────────────────────────┘
+```
+
+---
+
+### 4.4 Download & Manage Models
+
+**Goal:** Download models from HuggingFace and manage local storage
+
+```dart
+// download_service.dart
+
+class DownloadService {
+  
+  /// Start model download
+  Future<void> downloadModel({
+    required HFModel model,
+    required ModelFile file,
+    required Function(double progress) onProgress,
+  }) async {
+    final savePath = await _getModelSavePath(file.filename);
+    
+    await _dio.download(
+      file.downloadUrl,
+      savePath,
+      onReceiveProgress: (received, total) {
+        if (total != -1) {
+          onProgress(received / total);
+        }
+      },
+    );
+    
+    // Save model info to local DB
+    await _saveModelToDb(model, file, savePath);
+  }
+  
+  /// Get all downloaded models
+  Future<List<DownloadedModel>> getDownloadedModels() async {
+    return await _modelBox.values.toList();
+  }
+  
+  /// Delete a model
+  Future<void> deleteModel(String modelId) async {
+    final model = await _modelBox.get(modelId);
+    if (model != null) {
+      await File(model.localPath).delete();
+      await _modelBox.delete(modelId);
+    }
+  }
+  
+  /// Get models directory path
+  Future<String> _getModelSavePath(String filename) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final modelsDir = Directory('${dir.path}/models');
+    if (!await modelsDir.exists()) {
+      await modelsDir.create(recursive: true);
+    }
+    return '${modelsDir.path}/$filename';
+  }
+}
+```
+
+**My Models Page UI:**
+```
+┌─────────────────────────────────┐
+│ 📦 My Models          2 models  │
+├─────────────────────────────────┤
+│ Storage: 6.3GB used / 64GB free │
+│ ████░░░░░░░░░░░░░░░░░░░░░░░     │
+├─────────────────────────────────┤
+│                                 │
+│ ┌─────────────────────────────┐ │
+│ │ ✅ Phi-3 Mini               │ │
+│ │ 2.2GB  •  Q4_K_M            │ │
+│ │ Last used: Today            │ │
+│ │ [💬 Chat] [🗑️ Delete]       │ │
+│ └─────────────────────────────┘ │
+│                                 │
+│ ┌─────────────────────────────┐ │
+│ │ ✅ Mistral 7B               │ │
+│ │ 4.1GB  •  Q4_K_M            │ │
+│ │ Last used: Yesterday        │ │
+│ │ [💬 Chat] [🗑️ Delete]       │ │
+│ └─────────────────────────────┘ │
+│                                 │
+│ [+ Explore More Models]         │
+└─────────────────────────────────┘
+```
+
+---
+
+### 4.5 Basic Chat UI
+
+**Goal:** Chat with downloaded models using llama.cpp
+
+**Reference:** [llama_cpp_dart](https://github.com/netdur/llama_cpp_dart)
+
+```dart
+// llama_service.dart
+
+class LlamaService {
+  LlamaContext? _context;
+  
+  /// Load a model
+  Future<void> loadModel(DownloadedModel model) async {
+    final params = ModelParams(
+      nGpuLayers: 0,       // CPU only for now
+    );
+    
+    _context = await LlamaContext.create(
+      modelPath: model.localPath,
+      params: params,
+    );
+  }
+  
+  /// Generate response (streaming)
+  Stream<String> chat({
+    required String message,
+    required List<ChatMessage> history,
+  }) async* {
+    if (_context == null) throw Exception('No model loaded');
+    
+    final prompt = _buildPrompt(message, history);
+    
+    final params = SamplingParams(
+      temperature: 0.7,
+      topP: 0.9,
+      maxTokens: 512,
+    );
+    
+    await for (final token in _context!.generate(prompt, params)) {
+      yield token;
+    }
+  }
+  
+  /// Build prompt from history
+  String _buildPrompt(
+    String message,
+    List<ChatMessage> history,
+  ) {
+    final buffer = StringBuffer();
+    
+    // System prompt
+    buffer.writeln('<|system|>');
+    buffer.writeln('You are a helpful AI assistant.');
+    buffer.writeln('<|end|>');
+    
+    // Chat history
+    for (final msg in history) {
+      if (msg.isUser) {
+        buffer.writeln('<|user|>');
+        buffer.writeln(msg.content);
+        buffer.writeln('<|end|>');
+      } else {
+        buffer.writeln('<|assistant|>');
+        buffer.writeln(msg.content);
+        buffer.writeln('<|end|>');
+      }
+    }
+    
+    // Current message
+    buffer.writeln('<|user|>');
+    buffer.writeln(message);
+    buffer.writeln('<|end|>');
+    buffer.writeln('<|assistant|>');
+    
+    return buffer.toString();
+  }
+  
+  /// Unload model from memory
+  Future<void> unloadModel() async {
+    await _context?.dispose();
+    _context = null;
+  }
+}
+```
+
+**Chat Page UI:**
+```
+┌─────────────────────────────────┐
+│ ← Phi-3 Mini          ⚙️       │
+│ 🟢 Ready                        │
+├─────────────────────────────────┤
+│                                 │
+│         ┌─────────────────┐     │
+│         │ Hey! What can   │     │
+│         │ you help me     │     │
+│         │ with today?     │     │
+│         └─────────────────┘     │
+│                           You   │
+│                                 │
+│  ┌──────────────────────────┐   │
+│  │ Hi! I'm Phi-3 Mini,      │   │
+│  │ running locally on your  │   │
+│  │ device. I can help you   │   │
+│  │ with questions, writing  │   │
+│  │ code, and much more! 🚀  │   │
+│  └──────────────────────────┘   │
+│  PocketLM                       │
+│                                 │
+├─────────────────────────────────┤
+│ ┌─────────────────────┐ [Send] │
+│ │ Type a message...   │        │
+│ └─────────────────────┘        │
+└─────────────────────────────────┘
+```
+
+---
+
+## 5. Phase 2 - Polish ✨
+
+### 5.1 Better Chat UI
+
+**Features to add:**
+```
+💬 Chat Improvements
+├── Markdown rendering
+│   ├── Bold, italic, headers
+│   ├── Code blocks with syntax highlight
+│   ├── Lists and tables
+│   └── Links
+├── Chat features
+│   ├── Copy message
+│   ├── Regenerate response
+│   ├── Clear chat history
+│   └── Share conversation
+└── UX improvements
+    ├── Typing indicator
+    ├── Stop generation button
+    ├── Scroll to bottom button
+    └── Message timestamps
+```
+
+**Packages to add:**
+```yaml
+flutter_markdown: ^0.6.18        # Markdown rendering
+flutter_highlight: ^0.7.0        # Code syntax highlighting
+```
+
+---
+
+### 5.2 Model Benchmarking
+
+**Goal:** Test model speed on device and show performance metrics
+
+```dart
+class BenchmarkService {
+  Future<BenchmarkResult> runBenchmark(DownloadedModel model) async {
+    final stopwatch = Stopwatch()..start();
+    
+    // Run standard test prompt
+    const testPrompt = 'What is artificial intelligence?';
+    int tokenCount = 0;
+    
+    await for (final token in _llamaService.chat(
+      message: testPrompt,
+      history: [],
+    )) {
+      tokenCount++;
+    }
+    
+    stopwatch.stop();
+    
+    return BenchmarkResult(
+      tokensPerSecond: tokenCount / stopwatch.elapsed.inSeconds,
+      totalTokens: tokenCount,
+      totalTime: stopwatch.elapsed,
+      modelName: model.name,
+    );
+  }
+}
+```
+
+**Benchmark UI:**
+```
+┌─────────────────────────────────┐
+│ 📊 Phi-3 Mini Benchmark         │
+├─────────────────────────────────┤
+│ Speed:    12.3 tokens/sec  🟢   │
+│ RAM Used: 2.1GB / 6GB     🟢   │
+│ Time:     45 seconds            │
+│                                 │
+│ Performance Rating:             │
+│ ████████████░░░░ Good (75%)     │
+└─────────────────────────────────┘
+```
+
+---
+
+### 5.3 Download Resume Support
+
+```dart
+class DownloadService {
+  
+  /// Download with resume support
+  Future<void> downloadWithResume({
+    required String url,
+    required String savePath,
+    required Function(double) onProgress,
+  }) async {
+    final file = File(savePath);
+    int downloadedBytes = 0;
+    
+    // Check if partial download exists
+    if (await file.exists()) {
+      downloadedBytes = await file.length();
+    }
+    
+    await _dio.download(
+      url,
+      savePath,
+      options: Options(
+        headers: {
+          // Resume from where we left off
+          'Range': 'bytes=$downloadedBytes-',
+        },
+        responseType: ResponseType.stream,
+      ),
+      onReceiveProgress: (received, total) {
+        final progress = (downloadedBytes + received) / 
+                        (downloadedBytes + total);
+        onProgress(progress);
+      },
+    );
+  }
+}
+```
+
+---
+
+### 5.4 Background Downloading
+
+```dart
+// Using flutter_downloader for background downloads
+
+class BackgroundDownloadService {
+  
+  Future<void> startBackgroundDownload({
+    required String url,
+    required String filename,
+  }) async {
+    final savedDir = await _getModelsDirectory();
+    
+    await FlutterDownloader.enqueue(
+      url: url,
+      savedDir: savedDir,
+      fileName: filename,
+      showNotification: true,      // Show progress in notification
+      openFileFromNotification: false,
+    );
+  }
+  
+  // Listen to download progress
+  void listenToDownloads() {
+    FlutterDownloader.registerCallback((id, status, progress) {
+      // Update UI with download progress
+    });
+  }
+}
+```
+
+---
+
+## 6. Phase 3 - Ollama Beta 🔄
+
+**Reference:** [Ollama API Docs](https://github.com/ollama/ollama/blob/main/docs/api.md)
+
+### 6.1 Ollama Account Linking
+
+```dart
+// ollama_service.dart
+
+class OllamaService {
+  final Dio _dio;
+  String? _baseUrl;        // User's Ollama server URL
+  String? _apiKey;         // Optional API key
+  
+  /// Connect to Ollama instance
+  Future<bool> connect({
+    required String serverUrl,
+    String? apiKey,
+  }) async {
+    try {
+      _baseUrl = serverUrl;
+      _apiKey = apiKey;
+      
+      // Test connection
+      final response = await _dio.get('$serverUrl/api/tags');
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+  
+  /// Get available models on Ollama server
+  Future<List<OllamaModel>> getModels() async {
+    final response = await _dio.get('$_baseUrl/api/tags');
+    return (response.data['models'] as List)
+        .map((m) => OllamaModel.fromJson(m))
+        .toList();
+  }
+  
+  /// Chat with Ollama model
+  Stream<String> chat({
+    required String model,
+    required String message,
+    required List<ChatMessage> history,
+  }) async* {
+    final response = await _dio.post(
+      '$_baseUrl/api/chat',
+      data: {
+        'model': model,
+        'messages': [
+          ...history.map((m) => {
+            'role': m.isUser ? 'user' : 'assistant',
+            'content': m.content,
+          }),
+          {'role': 'user', 'content': message},
+        ],
+        'stream': true,
+      },
+      options: Options(responseType: ResponseType.stream),
+    );
+    
+    await for (final chunk in response.data.stream) {
+      final data = jsonDecode(utf8.decode(chunk));
+      if (data['message'] != null) {
+        yield data['message']['content'];
+      }
+    }
+  }
+}
+```
+
+### 6.2 Cloud Fallback Logic
+
+```dart
+// chat_provider.dart
+
+class ChatProvider extends ChangeNotifier {
+  
+  Future<void> sendMessage(String message) async {
+    // Try local model first
+    if (_localModelLoaded) {
+      yield* _llamaService.chat(
+        message: message,
+        history: _history,
+      );
+    }
+    // Fallback to Ollama if model too big
+    else if (_ollamaService.isConnected) {
+      yield* _ollamaService.chat(
+        model: _selectedOllamaModel,
+        message: message,
+        history: _history,
+      );
+    }
+    else {
+      throw Exception('No model available!');
+    }
+  }
+}
+```
+
+### 6.3 Settings Page (Phase 3)
+
+```
+┌─────────────────────────────────┐
+│ ⚙️ Settings                     │
+├─────────────────────────────────┤
+│ 📱 Device                       │
+│ RAM: 8GB  •  Storage: 64GB      │
+│ [View Full Specs]               │
+├─────────────────────────────────┤
+│ 🔄 Ollama (Beta)                │
+│ Status: Connected 🟢            │
+│ Server: http://my-server:11434  │
+│ [Disconnect] [Test Connection]  │
+├─────────────────────────────────┤
+│ 🎨 Appearance                   │
+│ Theme: Dark                     │
+│ Language: English               │
+├─────────────────────────────────┤
+│ 💬 Chat Settings                │
+│ Context Window: 2048 tokens     │
+│ Temperature: 0.7                │
+│ Max Tokens: 512                 │
+├─────────────────────────────────┤
+│ ℹ️ About                        │
+│ PocketLM v1.0.0                 │
+│ [GitHub] [Report Bug]           │
+└─────────────────────────────────┘
+```
+
+---
+
+## 7. References & Resources 📚
+
+### Core Dependencies
+| Resource | Link | Purpose |
+|---|---|---|
+| **llama.cpp** | [github.com/ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) | Core inference engine |
+| **llama_cpp_dart** | [github.com/netdur/llama_cpp_dart](https://github.com/netdur/llama_cpp_dart) | Flutter binding for llama.cpp |
+| **LLM-Calc** | [github.com/RayFernando1337/LLM-Calc](https://github.com/RayFernando1337/LLM-Calc) | RAM calculator logic |
+
+### APIs
+| Resource | Link | Purpose |
+|---|---|---|
+| **HuggingFace API** | [huggingface.co/docs/api-inference](https://huggingface.co/docs/api-inference) | Browse & download models |
+| **HuggingFace Models** | [huggingface.co/models?library=gguf](https://huggingface.co/models?library=gguf) | GGUF model library |
+| **Ollama API** | [github.com/ollama/ollama/blob/main/docs/api.md](https://github.com/ollama/ollama/blob/main/docs/api.md) | Ollama cloud integration |
+
+### Flutter Packages
+| Package | Link | Purpose |
+|---|---|---|
+| **flutter_downloader** | [pub.dev/packages/flutter_downloader](https://pub.dev/packages/flutter_downloader) | Background downloads |
+| **device_info_plus** | [pub.dev/packages/device_info_plus](https://pub.dev/packages/device_info_plus) | Device specs |
+| **dio** | [pub.dev/packages/dio](https://pub.dev/packages/dio) | HTTP client |
+| **hive_flutter** | [pub.dev/packages/hive_flutter](https://pub.dev/packages/hive_flutter) | Local database |
+| **flutter_markdown** | [pub.dev/packages/flutter_markdown](https://pub.dev/packages/flutter_markdown) | Markdown rendering |
+| **provider** | [pub.dev/packages/provider](https://pub.dev/packages/provider) | State management |
+
+### Similar Apps (Study These!)
+| App | Link | What to Learn |
+|---|---|---|
+| **PocketPal AI** | [github.com/a-ghorbani/pocketpal-ai](https://github.com/a-ghorbani/pocketpal-ai) | Mobile LLM UX |
+| **LLMFarm** | [github.com/guinmoon/LLMFarm](https://github.com/guinmoon/LLMFarm) | iOS LLM app |
+| **Maid** | [github.com/Mobile-Artificial-Intelligence/maid](https://github.com/Mobile-Artificial-Intelligence/maid) | Flutter LLM app! |
+
+---
+
+## 8. Development Milestones 🗓️
+
+```
+Phase 1 - Core (Target: 6-8 weeks)
+├── Week 1-2: Project setup + Device specs detection
+├── Week 3:   LLM Calculator implementation
+├── Week 4-5: HuggingFace explore page
+├── Week 6:   Download manager
+└── Week 7-8: Basic chat UI + Testing
+
+Phase 2 - Polish (Target: 4-6 weeks)
+├── Week 1-2: Better chat UI (markdown, code)
+├── Week 3:   Model benchmarking
+├── Week 4:   Download resume support
+└── Week 5-6: Background downloading + Testing
+
+Phase 3 - Ollama Beta (Target: 4-6 weeks)
+├── Week 1-2: Ollama account linking
+├── Week 3-4: Cloud fallback logic
+└── Week 5-6: Sync settings + Testing
+```
+
+---
+
+## 9. App Design Guidelines 🎨
+
+### Color Palette
+```
+Primary:     #6C63FF  (Purple - AI/Tech feeling)
+Secondary:   #03DAC6  (Teal - Modern)
+Background:  #0D0D0D  (Dark mode first)
+Surface:     #1A1A2E  (Slightly lighter dark)
+Success:     #4CAF50  (Green - Compatible)
+Warning:     #FF9800  (Orange - Tight fit)
+Error:       #F44336  (Red - Not compatible)
+Text:        #FFFFFF  (White on dark)
+```
+
+### Design Principles
+```
+✅ Dark mode first
+✅ Clean and minimal UI
+✅ Clear compatibility indicators
+✅ Always show device specs context
+✅ Progress indicators for long operations
+✅ Offline first design
+```
+
+---
+
+*PocketLM - Your AI, Your Phone, Your Privacy* 🔒
