@@ -1,0 +1,90 @@
+
+***
+
+# 📄 DOCUMENT: Local LLM Hardware Monitor (C++ / Dart FFI Blueprint)
+
+## 1. Project Context & Goals
+**Purpose:** To monitor Android hardware purely via C++ to determine device capability for running Local LLMs (Large Language Models), prevent out-of-memory (OOM) crashes, avoid thermal throttling, and provide a "CPU-Z" style specs page.
+**Architecture:** 100% C++ connected directly to Flutter via Dart FFI. Zero Kotlin/Java overhead.
+
+---
+
+## 2. Current Behavior vs. Target Behavior (The Fixes)
+
+| Feature | Current Kotlin Behavior | Target C++ Behavior |
+| :--- | :--- | :--- |
+| **RAM (Real-time)** | Uses `ActivityManager`. No Swap info. | Parses `/proc/meminfo` directly. Tracks Swap to warn user if LLM spills into slow memory. |
+| **CPU Max Freq** | Reads `cpu0` (LITTLE core), shows 2.0GHz. | Loops `cpu0` to `cpu7` to find the "Prime" core peak (e.g., 3.0GHz+). |
+| **CPU % Usage** | Throws permission error, shows 0.0%. | **Drop global %.** Focus purely on live MHz fluctuations per core (Standard for Android 8+). |
+| **GPU Usage/Freq** | Returns 0 due to SELinux blocking `sysfs`. | **Drop live GPU metrics.** Will fetch static GPU Renderer/Vendor only to identify capability. |
+| **Thermals (Heat)** | Not tracked. Phone might melt during LLM use. | Read `/sys/class/thermal/` or use Android NDK Thermal API to throttle LLM if phone gets too hot. |
+| **Performance** | Creates hundreds of Java objects per second (Jank). | Zero memory allocation. Reads bare-metal Linux files. Butter-smooth Flutter UI. |
+
+---
+
+## 3. What We Need to Build in C++ (The "Needs")
+
+To make this work via Dart FFI, we need to build a C++ library that exports specific functions. Here is the exact breakdown of the data points we need to fetch using standard C/C++ libraries (`<fstream>`, `<sys/statvfs.h>`, `<sys/system_properties.h>`).
+
+### A. RAM Subsystem (Crucial for LLMs)
+*LLMs crash if RAM runs out. We must poll this fast.*
+*   **Total RAM:** Parsed from `MemTotal` in `/proc/meminfo`.
+*   **Available RAM:** Parsed from `MemAvailable`. (If this drops below 300MB, LLM must pause/stop).
+*   **Swap Total & Free:** Parsed from `SwapTotal` and `SwapFree`. (If Swap is heavily used, LLM token generation will become extremely slow).
+
+### B. CPU Subsystem (Crucial for Generation Speed)
+*   **Core Count:** Using C++ `sysconf(_SC_NPROCESSORS_CONF)`.
+*   **Architecture:** Using C++ `uname()` (Looking for `aarch64` to ensure 64-bit compatibility).
+*   **Chipset Name:** Using Android NDK `__system_property_get` to read `ro.board.platform` (e.g., `lahaina` -> Snapdragon 888).
+*   **True Max Frequency:** Loop through `/sys/devices/system/cpu/cpuX/cpufreq/cpuinfo_max_freq` and return the highest value.
+*   **Live Frequencies (Array):** Read `scaling_cur_freq` for all available cores every 1 second. Gracefully handle `NULL`/Blocked cores.
+
+### C. GPU Subsystem (Static Info)
+*   **Renderer Name:** Read from `/sys/class/kgsl/kgsl-3d0/gpu_model` (Qualcomm) or Mali sysfs paths.
+*   *Note: Real-time GPU frequency is abandoned due to strict Android 14 SELinux rules.*
+
+### D. Storage Subsystem (Crucial for Model Downloads)
+*   **Total & Free Space:** Use C++ `statvfs()` on the app's data directory. LLMs are 2GB-8GB; we must verify space before allowing the user to download a model.
+
+### E. Thermal Subsystem (Crucial for Battery & Safety)
+*   **Current Temperature:** Read from `/sys/class/thermal/thermal_zoneX/temp`. We will find the zone representing the SoC (System on Chip) to monitor heat. If it exceeds a dangerous threshold (e.g., 85°C internal), we trigger a Dart callback to pause the LLM.
+
+---
+
+## 4. The Data Structures (Dart FFI Bridge)
+
+We will need to define C-structs that map perfectly to Dart classes. For example:
+
+```cpp
+// Example blueprint of what the C++ Struct will look like
+struct HardwareSnapshot {
+    // RAM
+    long long totalRamBytes;
+    long long availableRamBytes;
+    long long swapTotalBytes;
+    long long swapFreeBytes;
+    
+    // CPU
+    int coreCount;
+    long maxFreqMhz;
+    long liveCoreFreqs[8]; // Array for up to 8 cores
+    
+    // Thermals
+    float socTemperature;
+    
+    // Storage
+    long long freeStorageBytes;
+};
+```
+
+---
+
+## 5. Next Steps (How we execute this)
+
+1.  **Step 1:** Setup the `CMakeLists.txt` and native C++ file in the Flutter Android directory.
+2.  **Step 2:** Write the C++ helper functions (File readers, Property getters).
+3.  **Step 3:** Create the C-compatible `extern "C"` functions that Dart will call.
+4.  **Step 4:** Write the Dart `dart:ffi` bindings to map the C++ memory to Flutter UI state.
+5.  **Step 5:** Build the Flutter UI (Specs Page + Live LLM overlay).
+
+---
